@@ -1,5 +1,4 @@
 import re
-import torch
 from cleantext import clean
 from itertools import chain
 
@@ -250,19 +249,20 @@ def preprocess(text):
     text = _rm_line_break(text)
     text = _clean_text(text)
     return text
+  
+# This is to be present as the model's predict method
+# def detect(input_text,tokenizer,model,device='cuda:0',th=-3.08583984375):
+#     label2decisions = {
+#         0: "machine-generated",
+#         1: "human-written",
+#     }
+#     tokenize_input = tokenizer(input_text)
+#     tensor_input = torch.tensor([tokenize_input["input_ids"]]).to(device)
+#     outputs = model(tensor_input)
+#     is_machine = -outputs.logits[0][0].item()
+#     if is_machine < th:
+#         decision = 0
+#     else:
+#         decision = 1
 
-def detect(input_text,tokenizer,model,device='cuda:0',th=-3.08583984375):
-    label2decisions = {
-        0: "machine-generated",
-        1: "human-written",
-    }
-    tokenize_input = tokenizer(input_text)
-    tensor_input = torch.tensor([tokenize_input["input_ids"]]).to(device)
-    outputs = model(tensor_input)
-    is_machine = -outputs.logits[0][0].item()
-    if is_machine < th:
-        decision = 0
-    else:
-        decision = 1
-
-    return label2decisions[decision]
+#     return label2decisions[decision]
