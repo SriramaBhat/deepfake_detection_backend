@@ -1,16 +1,10 @@
-#Utiity Functions
 import re
 import torch
 from cleantext import clean
 from itertools import chain
 
 class MosesPunctNormalizer:
-    """
-    This is a Python port of the Moses punctuation normalizer from
-    https://github.com/moses-smt/mosesdecoder/blob/master/scripts/tokenizer/normalize-punctuation.perl
-    """
-
-    EXTRA_WHITESPACE = [  # lines 21 - 30
+    EXTRA_WHITESPACE = [  
         (r"\r", r""),
         (r"\(", r" ("),
         (r"\)", r") "),
@@ -23,9 +17,9 @@ class MosesPunctNormalizer:
         (r" ;", r";"),
     ]
 
-    NORMALIZE_UNICODE_IF_NOT_PENN = [(r"`", r"'"), (r"''", r' " ')]  # lines 33 - 34
+    NORMALIZE_UNICODE_IF_NOT_PENN = [(r"`", r"'"), (r"''", r' " ')]  
 
-    NORMALIZE_UNICODE = [  # lines 37 - 50
+    NORMALIZE_UNICODE = [  
         ("„", r'"'),
         ("“", r'"'),
         ("”", r'"'),
@@ -43,7 +37,7 @@ class MosesPunctNormalizer:
         ("…", r"..."),
     ]
 
-    FRENCH_QUOTES = [  # lines 52 - 57
+    FRENCH_QUOTES = [  
         ("\u00A0«\u00A0", r'"'),
         ("«\u00A0", r'"'),
         ("«", r'"'),
@@ -52,7 +46,7 @@ class MosesPunctNormalizer:
         ("»", r'"'),
     ]
 
-    HANDLE_PSEUDO_SPACES = [  # lines 59 - 67
+    HANDLE_PSEUDO_SPACES = [  
         ("\u00A0%", r"%"),
         ("nº\u00A0", "nº "),
         ("\u00A0:", r":"),
@@ -69,7 +63,7 @@ class MosesPunctNormalizer:
 
     DE_ES_FR_QUOTATION_FOLLOWED_BY_COMMA = [
         (r',"', r'",'),
-        (r'(\.+)"(\s*[^<])', r'"\g<1>\g<2>'),  # don't fix period at end of sentence
+        (r'(\.+)"(\s*[^<])', r'"\g<1>\g<2>'),  
     ]
 
     DE_ES_CZ_CS_FR = [
@@ -80,8 +74,6 @@ class MosesPunctNormalizer:
         ("(\\d)\u00A0(\\d)", r"\g<1>.\g<2>"),
     ]
 
-    # Regex substitutions from replace-unicode-punctuation.perl
-    # https://github.com/moses-smt/mosesdecoder/blob/master/scripts/tokenizer/replace-unicode-punctuation.perl
     REPLACE_UNICODE_PUNCTUATION = [
         ("，", ","),
         (r"。\s*", ". "),
@@ -130,16 +122,6 @@ class MosesPunctNormalizer:
         pre_replace_unicode_punct=False,
         post_remove_control_chars=False,
     ):
-        """
-        :param language: The two-letter language code.
-        :type lang: str
-        :param penn: Normalize Penn Treebank style quotations.
-        :type penn: bool
-        :param norm_quote_commas: Normalize quotations and commas
-        :type norm_quote_commas: bool
-        :param norm_numbers: Normalize numbers
-        :type norm_numbers: bool
-        """
         self.substitutions = [
             self.EXTRA_WHITESPACE,
             self.NORMALIZE_UNICODE,
@@ -147,7 +129,7 @@ class MosesPunctNormalizer:
             self.HANDLE_PSEUDO_SPACES,
         ]
 
-        if penn:  # Adds the penn substitutions after extra_whitespace regexes.
+        if penn:  
             self.substitutions.insert(1, self.NORMALIZE_UNICODE_IF_NOT_PENN)
 
         if norm_quote_commas:
@@ -171,17 +153,14 @@ class MosesPunctNormalizer:
         """
         Returns a string with normalized punctuation.
         """
-        # Optionally, replace unicode puncts BEFORE normalization.
+
         if self.pre_replace_unicode_punct:
             text = self.replace_unicode_punct(text)
 
-        # Actual normalization.
         for regexp, substitution in self.substitutions:
-            # print(regexp, substitution)
-            text = re.sub(regexp, substitution, str(text))
-            # print(text)
 
-        # Optionally, replace unicode puncts BEFORE normalization.
+            text = re.sub(regexp, substitution, str(text))
+
         if self.post_remove_control_chars:
             text = self.remove_control_chars(text)
 
@@ -193,7 +172,7 @@ class MosesPunctNormalizer:
         return text
 
     def remove_control_chars(self, text):
-        return regex.sub(r"\p{C}", "", text)
+        return re.sub(r"\p{C}", "", text)
 
 def _tokenization_norm(text):
     text = text.replace(
@@ -219,49 +198,44 @@ def _tokenization_norm(text):
         '\n ', '\n').strip()
     return text
 
-
 def _clean_text(text):
-    # remove PLM special tokens
+
     plm_special_tokens = r'(\<pad\>)|(\<s\>)|(\<\/s\>)|(\<unk\>)|(\<\|endoftext\|\>)'
     text = re.sub(plm_special_tokens, "", text)
 
-    # normalize puncuations
     moses_norm = MosesPunctNormalizer()
     text = moses_norm.normalize(text)
-    
-    # normalize tokenization
+
     text = _tokenization_norm(text)
-    
-    # remove specific text patterns, e.g,, url, email and phone number
+
     text = clean(text,
-        fix_unicode=True,               # fix various unicode errors
-        to_ascii=True,                  # transliterate to closest ASCII representation
-        lower=False,                     # lowercase text
-        no_line_breaks=True,           # fully strip line breaks as opposed to only normalizing them
-        no_urls=True,                  # replace all URLs with a special token
-        no_emails=True,                # replace all email addresses with a special token
-        no_phone_numbers=True,         # replace all phone numbers with a special token
-        no_numbers=False,               # replace all numbers with a special token
-        no_digits=False,                # replace all digits with a special token
-        no_currency_symbols=False,      # replace all currency symbols with a special token
-        no_punct=False,                 # remove punctuations
-        replace_with_punct="",          # instead of removing punctuations you may replace them
+        fix_unicode=True,               
+        to_ascii=True,                  
+        lower=False,                     
+        no_line_breaks=True,           
+        no_urls=True,                  
+        no_emails=True,                
+        no_phone_numbers=True,         
+        no_numbers=False,               
+        no_digits=False,                
+        no_currency_symbols=False,      
+        no_punct=False,                 
+        replace_with_punct="",          
         replace_with_url="",
         replace_with_email="",
         replace_with_phone_number="",
         replace_with_number="<NUMBER>",
         replace_with_digit="<DIGIT>",
         replace_with_currency_symbol="<CUR>",
-        lang="en"                       # set to 'de' for German special handling
+        lang="en"                       
     )
-    
-    # keep common puncts only
+
     punct_pattern = r'[^ A-Za-z0-9.?!,:;\-\[\]\{\}\(\)\'\"]'
     text = re.sub(punct_pattern, '', text)
-    # remove specific patterns
+
     spe_pattern = r'[-\[\]\{\}\(\)\'\"]{2,}'
     text = re.sub(spe_pattern, '', text)
-    # remove redundate spaces
+
     text = " ".join(text.split())
     return text
 
@@ -276,7 +250,6 @@ def preprocess(text):
     text = _rm_line_break(text)
     text = _clean_text(text)
     return text
-
 
 def detect(input_text,tokenizer,model,device='cuda:0',th=-3.08583984375):
     label2decisions = {
