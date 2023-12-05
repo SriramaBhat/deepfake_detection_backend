@@ -15,6 +15,7 @@ IMAGE_EXTENSIONS = set(["png", "jpeg", "jpg"])
 AUDIO_EXTENSIONS = set(["mp3", "wav", "ogg"])
 
 app = Flask(__name__)
+flask_cors.CORS(app)
 
 @app.route('/predict', methods=['POST'])
 def fileUpload():
@@ -49,4 +50,4 @@ def fileUpload():
 
 if __name__ == "__main__":
     app.run()
-    flask_cors.CORS(app, expose_headers='Authorization')
+
