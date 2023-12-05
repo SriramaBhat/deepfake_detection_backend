@@ -19,11 +19,10 @@ flask_cors.CORS(app)
 
 @app.route('/predict', methods=['POST'])
 def fileUpload():
-    file = request.form["file"]
-    filename = request.form["name"]
-    extension = filename.split(".")[1].strip()
-    destination="/upload_files".join([filename])
-    file.save(destination)
+    file = request.files.get("file")
+    extension = file.filename.split(".")[1].strip()
+    destination="./upload_files/"
+    file.save(destination+file.filename)
     if extension not in ALLOWED_EXTENSIONS:
       data = {
         "status_code": 400,
