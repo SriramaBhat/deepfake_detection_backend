@@ -1,37 +1,52 @@
 import os
-from flask import Flask, flash, request, redirect, url_for, session
+from flask import Flask, jsonify, request
 from werkzeug.utils import secure_filename
-from flask_cors import CORS, cross_origin
-import logging
+import flask_cors
+import pickle
+# import logging
 
-logging.basicConfig(level=logging.INFO)
+# logging.basicConfig(level=logging.INFO)
 
-logger = logging.getLogger('HELLO WORLD')
+# logger = logging.getLogger('HELLO WORLD')
 
-
-
-UPLOAD_FOLDER = '/path/to/the/uploads'
-ALLOWED_EXTENSIONS = set(['txt', 'pdf', 'png', 'jpg', 'jpeg', 'gif'])
+ALLOWED_EXTENSIONS = set(['txt', 'pdf', 'docx', 'png', 'jpg', 'jpeg', 'mp3', 'wav', 'ogg'])
+TEXT_EXTENSIONS = set(["txt", "pdf", "docx"])
+IMAGE_EXTENSIONS = set(["png", "jpeg", "jpg"])
+AUDIO_EXTENSIONS = set(["mp3", "wav", "ogg"])
 
 app = Flask(__name__)
-app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
-@app.route('/upload', methods=['POST'])
+@app.route('/predict', methods=['POST'])
 def fileUpload():
-    target=os.path.join(UPLOAD_FOLDER,'test_docs')
-    if not os.path.isdir(target):
-        os.mkdir(target)
-    logger.info("welcome to upload`")
-    file = request.files['file'] 
-    filename = secure_filename(file.filename)
-    destination="/".join([target, filename])
+    file = request.form["file"]
+    filename = request.form["name"]
+    extension = filename.split(".")[1].strip()
+    destination="/upload_files".join([filename])
     file.save(destination)
-    session['uploadFilePath']=destination
-    response="Whatever you wish too return"
-    return response
+    if extension not in ALLOWED_EXTENSIONS:
+      data = {
+        "status_code": 400,
+        "probability": -1,
+        "message": "File extension not supported"
+      }
+      return jsonify(data)
+    else:
+      model_path = "/models"
+      if extension in TEXT_EXTENSIONS:
+        model_path += "/text_model.pkl"
+      elif extension in IMAGE_EXTENSIONS:
+        model_path += "/image_model.pkl"
+      else:
+        model_path += "/audio_model.pkl"
+      model = pickle.load(model_path)
+      probability = model.predict(destination)
+      data = {
+        "status_code": 201,
+        "probability": probability,
+        "message": "success"
+      }
+      return jsonify(data)
 
 if __name__ == "__main__":
-    app.secret_key = os.urandom(24)
-    app.run(debug=True,host="0.0.0.0",use_reloader=False)
-
-flask_cors.CORS(app, expose_headers='Authorization')
+    app.run()
+    flask_cors.CORS(app, expose_headers='Authorization')
