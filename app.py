@@ -6,6 +6,7 @@ import tensorflow as tf
 import numpy as np
 import transformers
 import tensorflow_text as text
+import librosa
 import os
 
 UPLOAD_FOLDER = "./static"
@@ -39,6 +40,14 @@ def preprocess_image(filename, isGray):
   img = np.expand_dims(img, axis=0)
   return img
 
+def preprocess_audio(filename):
+  waveform, sample_rate = librosa.load(f"./static/audio/{filename}", sr=None)
+  mfcc = librosa.feature.mfcc(y=waveform, sr=sample_rate, 
+                              n_mfcc=25, n_fft=4096, hop_length=512)
+  mfcc = tf.image.resize(np.expand_dims(mfcc, -1), (96, 64), method="nearest")
+  mfcc = tf.expand_dims(mfcc, axis=-1)
+  return mfcc
+  
 def load_and_predict_text(text):
   text_model = tf.keras.models.load_model("./models/bert_model (1)")
   text = np.expand_dims(text, axis=0)
@@ -54,8 +63,16 @@ def load_and_predict_image(filename):
   prediction = prediction.tolist()[0][0]
   return prediction
 
+def load_and_predict_audio(filename):
+  audio_model = tf.keras.models.load_model("./models/vggish_25")
+  audio = preprocess_audio(filename)
+  prediction = audio_model.predict(audio)
+  prediction = prediction.tolist()[0][0]
+  return prediction
+
 @app.route("/predict", methods=["GET"])
 def predict_deepfake():
   # prediction = load_and_predict_text(("Adding batch size to input data is straightforward in Python. If you\'re using TensorFlow or PyTorch, you can simply reshape your input data to include an additional dimension representing the batch size."))
   # prediction = load_and_predict_image("test2.png")
-  return jsonify({"prediction": "Hello"})
+  prediction = load_and_predict_audio("test.wav")
+  return jsonify({"prediction": prediction})
