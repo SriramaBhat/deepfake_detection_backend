@@ -2,6 +2,7 @@ from flask import Flask, request, jsonify
 from werkzeug.utils import secure_filename
 from flask_cors import CORS
 from PIL import Image
+from pydub import AudioSegment
 import tensorflow as tf
 import numpy as np
 import transformers
@@ -10,11 +11,18 @@ import librosa
 import os
 
 UPLOAD_FOLDER = "./static"
-ALLOWED_EXTENSIONS = ["txt", "docx", "pdf", "jpeg", "jpg", "png", "mp3", "wav", "ogg"]
+ALLOWED_EXTENSIONS = {"txt", "docx", "pdf", "jpeg", "jpg", "png", "mp3", "wav", "ogg"}
 
 app = Flask(__name__)
 cors = CORS(app)
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
+
+def check_ext(filename):
+  ext = filename.split(".")
+  ext = ext[-1].lower()
+  if ext in ALLOWED_EXTENSIONS:
+    return True
+  return False
 
 def convert_image(filename):
   img = Image.open(f"./static/images/{filename}")
@@ -27,6 +35,21 @@ def convert_image(filename):
   img.save(f"./static/images/{name}.jpg", quality=75, optimize=True)
   if filename != f"{name}.jpg": os.remove(f"./static/images/{filename}")
   return {"filename": f"{name}.jpg", "gray": gray}
+
+def convert_audio(filename):
+  name = filename.split(".")
+  ext = name[-1].lower()
+  name = ".".join(name)
+  if ext == "wav": return filename
+  if ext == "mp3":
+    audio = AudioSegment.from_mp3(f"./static/audio/{filename}")
+    audio.export(f"./static/audio/{name}.wav", format="wav")
+    os.remove(f"./static/audio/{filename}")
+  if ext == "ogg":
+    audio = AudioSegment.from_ogg(f"./static/audio/{filename}")
+    audio.export(f"./static/audio/{name}.wav", format="wav")
+    os.remove(f"./static/audio/{filename}")
+  return f"./static/audio/{name}.wav"
 
 def preprocess_image(filename, isGray):
   img = tf.io.read_file(f"./static/images/{filename}")
@@ -42,7 +65,7 @@ def preprocess_image(filename, isGray):
 
 def preprocess_audio(filename):
   waveform, sample_rate = librosa.load(f"./static/audio/{filename}", sr=None)
-  mfcc = librosa.feature.mfcc(y=waveform, sr=sample_rate, 
+  mfcc = librosa.feature.mfcc(y=waveform, sr=sample_rate,
                               n_mfcc=25, n_fft=4096, hop_length=512)
   mfcc = tf.image.resize(np.expand_dims(mfcc, -1), (96, 64), method="nearest")
   mfcc = tf.expand_dims(mfcc, axis=-1)
@@ -65,14 +88,25 @@ def load_and_predict_image(filename):
 
 def load_and_predict_audio(filename):
   audio_model = tf.keras.models.load_model("./models/vggish_25")
+  filename = convert_audio(filename)
   audio = preprocess_audio(filename)
   prediction = audio_model.predict(audio)
   prediction = prediction.tolist()[0][0]
   return prediction
 
-@app.route("/predict", methods=["GET"])
+@app.route("/predict", methods=["POST"])
 def predict_deepfake():
-  # prediction = load_and_predict_text(("Adding batch size to input data is straightforward in Python. If you\'re using TensorFlow or PyTorch, you can simply reshape your input data to include an additional dimension representing the batch size."))
-  # prediction = load_and_predict_image("test2.png")
-  prediction = load_and_predict_audio("test.wav")
-  return jsonify({"prediction": prediction})
+  if request.method == "POST":
+    f = request.files.get("file")
+    if f and check_ext(f.filename):
+      filename = secure_filename(f.filename)
+      if filename.split(".")[-1].lower() in {"txt", "docx", "pdf"}:
+        f.save(os.path.join(app.config["UPLOAD_FOLDER"], "text", filename))  
+      if filename.split(".")[-1].lower() in {"jpg", "jpeg", "png"}:
+        f.save(os.path.join(app.config["UPLOAD_FOLDER"], "image", filename))  
+      if filename.split(".")[-1].lower() in {"ogg", "wav", "mp3"}:
+        f.save(os.path.join(app.config["UPLOAD_FOLDER"], "audio", filename))  
+    # prediction = load_and_predict_text(("Adding batch size to input data is straightforward in Python. If you\'re using TensorFlow or PyTorch, you can simply reshape your input data to include an additional dimension representing the batch size."))
+    # prediction = load_and_predict_image("test2.png")
+    # prediction = load_and_predict_audio("./static/audio/test.wav")  
+    return jsonify({"prediction": 80})
