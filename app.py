@@ -9,6 +9,9 @@ import transformers
 import tensorflow_text as text
 import librosa
 import os
+from pdfreader import SimplePDFViewer
+import fitz
+import docx
 
 UPLOAD_FOLDER = "./static"
 ALLOWED_EXTENSIONS = {"txt", "docx", "pdf", "jpeg", "jpg", "png", "mp3", "wav", "ogg"}
@@ -16,6 +19,21 @@ ALLOWED_EXTENSIONS = {"txt", "docx", "pdf", "jpeg", "jpg", "png", "mp3", "wav", 
 app = Flask(__name__)
 cors = CORS(app)
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
+
+def convert_docx_to_txt(docx_path):
+  doc = docx.Document(docx_path)
+  text = ''
+  for paragraph in doc.paragraphs:
+    text += paragraph.text + '\n'
+  return text
+
+def convert_pdf_to_text(pdf_path):
+  text = ''
+  with fitz.open(pdf_path) as pdf_document:
+    for page_number in range(len(pdf_document)):
+      page = pdf_document.load_page(page_number)
+      text += page.get_text()
+  return text
 
 def check_ext(filename):
   ext = filename.split(".")
