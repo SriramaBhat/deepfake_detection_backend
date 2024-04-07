@@ -7,10 +7,9 @@ import tensorflow as tf
 import numpy as np
 import transformers
 import tensorflow_text as text
+import pdfminer.high_level
 import librosa
 import os
-from pdfreader import SimplePDFViewer
-import fitz
 import docx
 
 UPLOAD_FOLDER = "./static"
@@ -29,10 +28,11 @@ def convert_docx_to_txt(docx_path):
 
 def convert_pdf_to_text(pdf_path):
   text = ''
-  with fitz.open(pdf_path) as pdf_document:
-    for page_number in range(len(pdf_document)):
-      page = pdf_document.load_page(page_number)
-      text += page.get_text()
+  with open(pdf_path, "rb") as pdf:
+    parser = pdfminer.high_level.PDFParser(pdf)
+    document = pdfminer.high_level.PDFDocument(parser)
+    converter = pdfminer.high_level.TextConverter(document)
+    text = converter.convert()
   return text
 
 def check_ext(filename):
@@ -118,13 +118,27 @@ def predict_deepfake():
     f = request.files.get("file")
     if f and check_ext(f.filename):
       filename = secure_filename(f.filename)
-      if filename.split(".")[-1].lower() in {"txt", "docx", "pdf"}:
-        f.save(os.path.join(app.config["UPLOAD_FOLDER"], "text", filename))  
+      ext = filename.split(".")[-1].lower()
+      if ext in {"txt", "docx", "pdf"}:
+        file_path = os.path.join(app.config["UPLOAD_FOLDER"], "text", filename)
+        f.save(file_path)
+        if ext == "docx":
+          text = convert_docx_to_txt(file_path) 
+        if ext == "pdf":
+          text = convert_pdf_to_text(file_path) 
+        if ext == "txt":
+          with open(file_path, "r") as fi:
+            text = fi.readlines()
+        prediction = load_and_predict_text((text))
+        prediction = 1 - prediction       
+         
       if filename.split(".")[-1].lower() in {"jpg", "jpeg", "png"}:
-        f.save(os.path.join(app.config["UPLOAD_FOLDER"], "image", filename))  
+        file_path = os.path.join(app.config["UPLOAD_FOLDER"], "image", filename)
+        f.save(file_path)
+        prediction = load_and_predict_image(file_path)
+
       if filename.split(".")[-1].lower() in {"ogg", "wav", "mp3"}:
-        f.save(os.path.join(app.config["UPLOAD_FOLDER"], "audio", filename))  
-    # prediction = load_and_predict_text(("Adding batch size to input data is straightforward in Python. If you\'re using TensorFlow or PyTorch, you can simply reshape your input data to include an additional dimension representing the batch size."))
-    # prediction = load_and_predict_image("test2.png")
-    # prediction = load_and_predict_audio("./static/audio/test.wav")  
-    return jsonify({"prediction": 80})
+        file_path = os.path.join(app.config["UPLOAD_FOLDER"], "audio", filename)
+        f.save(file_path)  
+        prediction = load_and_predict_audio(file_path)  
+    return jsonify({"prediction": prediction * 100})
