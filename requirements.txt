@@ -1,14 +1,13 @@
 docx==0.2.4
 Flask==3.0.3
-Flask-Cors==4.0.0
+Flask_Cors==4.0.0
 librosa==0.10.1
 numpy==1.26.4
 pdfminer==20191125
 Pillow==10.3.0
 pydub==0.25.1
 tensorflow==2.15.0
+tensorflow_intel==2.15.0
 tensorflow_text==2.15.0
 transformers==4.38.2
 Werkzeug==3.0.2
-vit_keras==0.1.2
-cffi==1.15.0
