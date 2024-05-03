@@ -2,12 +2,13 @@ from flask import Flask, request, jsonify
 from werkzeug.utils import secure_filename
 from flask_cors import CORS
 from PIL import Image
+from vit_keras import vit
 from pydub import AudioSegment
 import tensorflow as tf
 import numpy as np
 import transformers
 import tensorflow_text as text
-import pdfminer.high_level
+from pdfminer import high_level
 import librosa
 import os
 import docx
@@ -29,9 +30,9 @@ def convert_docx_to_txt(docx_path):
 def convert_pdf_to_text(pdf_path):
   text = ''
   with open(pdf_path, "rb") as pdf:
-    parser = pdfminer.high_level.PDFParser(pdf)
-    document = pdfminer.high_level.PDFDocument(parser)
-    converter = pdfminer.high_level.TextConverter(document)
+    parser = high_level.PDFParser(pdf)
+    document = high_level.PDFDocument(parser)
+    converter = high_level.TextConverter(document)
     text = converter.convert()
   return text
 
@@ -67,7 +68,7 @@ def convert_audio(filename):
     audio = AudioSegment.from_ogg(f"./static/audio/{filename}")
     audio.export(f"./static/audio/{name}.wav", format="wav")
     os.remove(f"./static/audio/{filename}")
-  return f"./static/audio/{name}.wav"
+  return f"{name}.wav"
 
 def preprocess_image(filename, isGray):
   img = tf.io.read_file(f"./static/images/{filename}")
@@ -82,12 +83,16 @@ def preprocess_image(filename, isGray):
   return img
 
 def preprocess_audio(filename):
+  arr = []
   waveform, sample_rate = librosa.load(f"./static/audio/{filename}", sr=None)
   mfcc = librosa.feature.mfcc(y=waveform, sr=sample_rate,
                               n_mfcc=25, n_fft=4096, hop_length=512)
   mfcc = tf.image.resize(np.expand_dims(mfcc, -1), (96, 64), method="nearest")
   mfcc = tf.expand_dims(mfcc, axis=-1)
-  return mfcc
+  arr.append(mfcc)
+  arr = np.array(arr)
+  arr = arr.reshape(-1, 96, 64, 1)
+  return arr
   
 def load_and_predict_text(text):
   text_model = tf.keras.models.load_model("./models/bert_model (1)")
@@ -97,7 +102,7 @@ def load_and_predict_text(text):
   return prediction
 
 def load_and_predict_image(filename):
-  image_model = tf.keras.models.load_model("./models/NewnetV1_2")
+  image_model = tf.keras.models.load_model("./models/NewnetV1.h5")
   obj = convert_image(filename)
   img = preprocess_image(obj["filename"], obj["gray"])
   prediction = image_model.predict(img)
@@ -130,15 +135,15 @@ def predict_deepfake():
           with open(file_path, "r") as fi:
             text = fi.readlines()
         prediction = load_and_predict_text((text))
-        prediction = 1 - prediction       
-         
+#        prediction = 1 - prediction
+
       if filename.split(".")[-1].lower() in {"jpg", "jpeg", "png"}:
-        file_path = os.path.join(app.config["UPLOAD_FOLDER"], "image", filename)
+        file_path = os.path.join(app.config["UPLOAD_FOLDER"], "images", filename)
         f.save(file_path)
-        prediction = load_and_predict_image(file_path)
+        prediction = load_and_predict_image(filename)
 
       if filename.split(".")[-1].lower() in {"ogg", "wav", "mp3"}:
         file_path = os.path.join(app.config["UPLOAD_FOLDER"], "audio", filename)
-        f.save(file_path)  
-        prediction = load_and_predict_audio(file_path)  
+        f.save(file_path)
+        prediction = load_and_predict_audio(filename)
     return jsonify({"prediction": prediction * 100})
